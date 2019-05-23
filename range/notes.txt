@@ -1,0 +1,8 @@
+Sunday, May 19, 2019
+-----------------------------
+
+PRIMARY:
+[] use python command line lib which prints help already (it's found in many of my other python utilities)
+
+ONCE IT'S WORKING:
+[] look for a bucket-o-threads container (or use visus' equivalent of the same if it has one)
