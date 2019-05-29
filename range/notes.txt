@@ -2,7 +2,110 @@ Sunday, May 19, 2019
 -----------------------------
 
 PRIMARY:
-[] use python command line lib which prints help already (it's found in many of my other python utilities)
+[x] use python command line lib which prints help already (it's found in many of my other python utilities)
 
 ONCE IT'S WORKING:
 [] look for a bucket-o-threads container (or use visus' equivalent of the same if it has one)
+
+Tuesday, May 28, 2019
+-----------------------------
+Making progress.
+[x] print("\tignoring because ncomponents is > 1")    # [] test this (todo)
+[x] get basic min/max checking working
+[] handle levels that would load too much data at full resolution
+[] try not changing functions to see if this is faster: global_calc_minmax_func=calc_minmax
+[] vectorize the computation for it to be *much* faster (just not sure how, but numpy seems able to do so)
+[] compute for all timesteps
+
+---
+
+#helpful to debug by cut n' pasting things like this into the interpreter session
+
+# size of each level will be larger by the entire size of the previous level
+# since the size of the dataset doubles at each level
+for lvl in range(0,idx.getMaxResolution()+1):
+    print(lvl)
+    query=Query(idx,ord('r'))
+    query.position=Position(box)
+    query.start_resolution=lvl
+    query.end_resolutions.clear()
+    query.end_resolutions.append(lvl)
+    idx.beginQuery(query)
+    query.nsamples.toString()
+
+res=6
+query=Query(idx,ord('r'))
+query.position=Position(box)
+query.start_resolution=res
+query.end_resolutions.clear()
+query.end_resolutions.append(res)
+idx.beginQuery(query)
+idx.executeQuery(access,query)
+buf=VisusKernelPy.Array.toNumPy(query.buffer)
+buf
+foo
+for v in nditer(buf):
+    print(type(v))
+    print(v)
+    v
+    foo=v[0]
+
+
+from OpenVisus import *
+VisusIdxPy.IdxModule.attach()
+idxpath="/Volumes/CAMDATA/data/climate/MIROC/MIROC4h/mon/r3i1p1_3d.idx"
+#idxpath="/Users/cam/Downloads/OpenVisus-1.3.2/datasets/midx/A/visus.idx"
+idx=LoadDataset(idxpath)
+box=idx.getBox()
+access=idx.createAccess()
+num_levels=idx.getMaxResolution()
+#timesteps=idx.timesteps
+#timesteps.getMin()
+#timesteps.getMax()
+tsrng=idx.timesteps.getRange()
+tsrng.delta()
+tsrng.From
+tsrng.To
+tsrng.step
+for ts in range(int(tsrng.From),int(tsrng.To+tsrng.step),int(tsrng.step)):
+    print(ts,end=' ')
+
+# my external drive with some climate data
+(openvisus-1.3.57) cam@mercury:~/code/idx_tools/range$ find /Volumes/CAMDATA/data/climate/ -name "*\.idx" -not -name "._*"
+/Volumes/CAMDATA/data/climate//BCC/bcc-csm1-1/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//BNU/BNU-ESM/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//CCCma/CanCM4/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//CSIRO-BOM/ACCESS1-0/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//IPSL/IPSL-CM5A-LR/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//IPSL/IPSL-CM5A-MR/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC-ESM/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC-ESM-CHEM/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC4h/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC4h/mon/r1i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC4h/mon/r2i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC4h/mon/r2i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC4h/mon/r3i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC4h/mon/r3i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r1i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r2i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r2i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r3i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r3i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r4i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MIROC/MIROC5/mon/r4i1p1_3d.idx
+/Volumes/CAMDATA/data/climate//MOHC/HadCM3/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MPI-M/MPI-ESM-LR/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//MPI-M/MPI-ESM-P/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NASA-GISS/GISS-E2-H/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NASA-GISS/GISS-E2-R/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCAR/CCSM4/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCAR/CCSM4/mon/r2i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCAR/CCSM4/mon/r3i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCAR/CCSM4/mon/r4i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCAR/CCSM4/mon/r5i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCAR/CCSM4/mon/r6i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NCC/NorESM1-M/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NOAA-GFDL/GFDL-CM3/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NOAA-GFDL/GFDL-ESM2G/mon/r1i1p1_2d.idx
+/Volumes/CAMDATA/data/climate//NSF-DOE-NCAR/CESM1-CAM5-1-FV2/mon/r1i1p1_2d.idx
