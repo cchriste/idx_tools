@@ -46,7 +46,6 @@ query.getByteSize()
 idx.executeQuery(access,query)
 buf=VisusKernelPy.Array.toNumPy(query.buffer)
 buf
-foo
 for v in nditer(buf):
     print(type(v))
     print(v)
@@ -74,6 +73,114 @@ tsrng.To
 tsrng.step
 for ts in range(int(tsrng.From),int(tsrng.To+tsrng.step),int(tsrng.step)):
     print(ts,end=' ')
+
+# interesting, but retrieves empty space around idx box since it's pow2 larger
+#res=idx.getMaxResolution()
+res=12
+bitmask=idx.getBitmask()
+pbox=bitmask.getPow2Box()
+query=Query(idx,ord('r'))
+query.position=Position(pbox)
+#query.start_resolution=res
+query.end_resolutions.clear()
+query.end_resolutions.append(res)
+idx.beginQuery(query)
+query.canExecute()
+query.nsamples.toString()
+query.getByteSize()
+idx.executeQuery(access,query)
+buf=VisusKernelPy.Array.toNumPy(query.buffer)
+
+for lvl in range(0,idx.getMaxResolution()):
+    print("lvl:",lvl,"box:",idx.getLevelBox(lvl).toString())
+
+query=None
+#for lvl in range(0,idx.getMaxResolution()):
+for lvl in range(12,13):
+    lbox=idx.getLevelBox(lvl)
+    print("lvl:",lvl,"box:",lbox.toString())
+    query=Query(idx,ord('r'))
+    query.position=Position(lbox)
+    query.start_resolution=lvl
+    query.end_resolutions.clear()
+    query.end_resolutions.append(lvl)
+    idx.beginQuery(query)
+    query.canExecute()
+    query.nsamples.toString()
+    query.getByteSize()
+
+getLargestBox(...)
+    # I wish it were this simple...
+    bitmask=idx.getBitmask()
+    pbox=bitmask.getPow2Box()
+    box=idx.getBox()
+    # adjust pbox by first position of box
+    ...
+
+def getNextLevelBox(idx,lvl,curr_box,box_size):
+    lbox=idx.getLevelBox(lvl)
+    idx_box=idx.getBox()  #TODO: Maybe restricting the box size by this will work
+    next_box=NdBox(curr_box.p1,curr_box.p2)
+    global I
+    #print(indent(I)+"getNextBox(): curr_box:",curr_box.toString()+",","box_size:",box_size.toString())
+    # x
+    if next_box.p2[0] < idx_box.p2[0]:
+    #if next_box.p2[0] < lbox.p2[0]:
+        next_box.p1.set(0,     next_box.p1[0] + box_size[0])                 # increment x p1
+        next_box.p2.set(0, max(next_box.p2[0] + box_size[0], idx_box.p2[0])) # increment x p2
+        #print(indent(I)+"increment x, next_box:",next_box.toString())
+        return next_box
+    # y
+    if next_box.p2[1] < idx_box.p2[1]:
+    #if next_box.p2[1] < lbox.p2[1]:
+        next_box.p1.set(1,     next_box.p1[1] + box_size[1])                 # increment y p1
+        next_box.p2.set(1, max(next_box.p2[1] + box_size[1], idx_box.p2[1])) # increment y p2
+        next_box.p1.set(0, idx_box.p1[0])                                    # wrap x p1
+        next_box.p2.set(0, idx_box.p1[0] + box_size[0])                      # wrap x p2
+        #print(indent(I)+"increment y, wrap x, next_box:",next_box.toString())
+        return next_box
+    # z
+    if next_box.p2[2] < idx_box.p2[2]:
+    #if next_box.p2[2] < lbox.p2[2]:
+        next_box.p1.set(2,     next_box.p1[2] + box_size[2])                 # increment z p1
+        next_box.p2.set(2, max(next_box.p2[2] + box_size[2], idx_box.p2[2])) # increment z p2
+        next_box.p1.set(1, idx_box.p1[1])                                    # wrap y p1
+        next_box.p2.set(1, idx_box.p1[1] + box_size[1])                      # wrap y p2
+        next_box.p1.set(0, idx_box.p1[0])                                    # wrap x p1
+        next_box.p2.set(0, idx_box.p1[0] + box_size[0])                      # wrap x p2
+        #print(indent(I)+"increment z, wrap x and y, next_box:",next_box.toString())
+        return next_box
+    #print(indent(I)+"Done! No more boxes to read for this field at this level")
+    return None
+
+for lvl in range(0,idx.getMaxResolution()+1):
+    lbox=idx.getLevelBox(lvl)
+    print("lvl:",lvl,"box:",lbox.toString(),end=', ')
+    query=Query(idx,ord('r'))
+    query.position=Position(lbox)
+    query.start_resolution=lvl
+    query.end_resolutions.clear()
+    query.end_resolutions.append(lvl)
+    idx.beginQuery(query)
+    #query.canExecute() (beginQuery already returns True/False)
+    print("dims:",query.nsamples.toString(),"size:",str(query.getByteSize()))
+    # now reduce size of lbox by 1/4 and try the four sub-boxes    
+    quarter_lbox=NdBox(lbox.p1,lbox.middle())
+    box_size=quarter_lbox.size()
+    for i in range(0,4):
+        print("subbox:",i,"box:",quarter_lbox.toString(),end=', ')
+        query=Query(idx,ord('r'))
+        query.position=Position(quarter_lbox)
+        query.start_resolution=lvl
+        query.end_resolutions.clear()
+        query.end_resolutions.append(lvl)
+        idx.beginQuery(query)
+        #query.canExecute() (beginQuery already returns True/False)
+        print("dims:",query.nsamples.toString(),"size:",str(query.getByteSize()))
+        quarter_lbox=getNextLevelBox(idx,lvl,quarter_lbox,box_size)
+
+TODO: if this works, then some returned boxes must be cropped
+
 
 # my external drive with some climate data
 (openvisus-1.3.57) cam@mercury:~/code/idx_tools/range$ find /Volumes/CAMDATA/data/climate/ -name "*\.idx" -not -name "._*"
