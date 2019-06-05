@@ -20,7 +20,7 @@ Making progress.
 Saturday, June 01, 2019
 -----------------------------
 Getting correct results now, but still lots of extraneous queries.
-[] try div by 2 instead of by 4
+[x] try div by 2 instead of by 4 (and it performs far fewer queries)
 [] do full-res queries to verify results are currect
  - no spurious sample, of which 0.0 is often an indicator
  - still not 100% proof, which could be created with a synthetic dataset that has unique values for each "pixel" (like maybe its coordinates)
@@ -54,7 +54,30 @@ Tuesday, June 04, 2019
 [] update visus --minmax to handle --min and --max set by user
 [] fix visus --minmax checking spurious values from non-pow2 data (or at least file a bug)
 
+Wednesday, June 05, 2019
+-----------------------------
 
+class Foo:
+    def __init__(self,val = 42):
+        self.f(val)
+    def f(self,val):
+        self.val=val
+        self.x=val*2
+        v=val*4  #local variable of function
+        if not self.valid():
+           raise ValueError("%i is not The Answer!" % val)
+    def g(self):
+        print("val:",self.val)
+        print("x:",self.x)
+    def valid(self):
+        return self.val == 42
+
+Making calc_minmax into a class (IdxRange).
+[] create a class inside IdxRange called Field and stop using SimpleNamespace
+ - aside: just use an empty class like this in order to have a namespace:
+     class Foo:
+         None
+   
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 ** It's helpful to debug by cut n' pasting things like this into an interpreter session **
