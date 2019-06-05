@@ -10,16 +10,57 @@ ONCE IT'S WORKING:
 Tuesday, May 28, 2019
 -----------------------------
 Making progress.
-[x] print("\tignoring because ncomponents is > 1")    # [] test this (todo)
+[x] print("\tignoring because ncomponents is > 1")    # [x] test this (todo)
 [x] get basic min/max checking working
-[] handle levels that would load too much data at full resolution
+[x] handle levels that would load too much data at full resolution
 [] try not changing functions to see if this is faster: global_calc_minmax_func=calc_minmax
 [] vectorize the computation for it to be *much* faster (just not sure how, but numpy seems able to do so)
 [x] compute for all timesteps
 
----
+Saturday, June 01, 2019
+-----------------------------
+Getting correct results now, but still lots of extraneous queries.
+[] try div by 2 instead of by 4
+[] do full-res queries to verify results are currect
+ - no spurious sample, of which 0.0 is often an indicator
+ - still not 100% proof, which could be created with a synthetic dataset that has unique values for each "pixel" (like maybe its coordinates)
+  ...but pretty close! and I don't feel like creating a new dataset right now.
+[] handle ncomponents >1 cases (mostly there already)
 
-#helpful to debug by cut n' pasting things like this into the interpreter session
+Sunday, June 02, 2019
+-----------------------------
+[] make it a class rather than using all those globals
+
+debugging...
+
+box/4
+Level: 11
+lvl: 11 box: 0 1024 16 528 0 32, largest box for field hus at lvl 11 is <32 8 1> (1024 bytes), overall region: <512 256 16>, actual box: <0 512 16 272 0 16>
+  timestep: 1200
+    field: hus
+      hus float32 min(0.0001819604804040864) max(0.01998087391257286)
+
+box/2
+Level: 11
+lvl: 11 box: 0 1024 16 528 0 32 dim: 3, largest box for field hus at lvl 11 is <64 8 1> (2048 bytes), overall region: <1024 256 32>, actual box: <0 1024 16 272 0 32>
+  timestep: 1200
+    field: hus
+      hus float32 min(0.0) max(0.01998087391257286)
+
+Tuesday, June 04, 2019
+-----------------------------
+[...] all of the above, and...
+[] test performance
+[] update visus --minmax to handle --min and --max set by user
+[] fix visus --minmax checking spurious values from non-pow2 data (or at least file a bug)
+
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+** It's helpful to debug by cut n' pasting things like this into an interpreter session **
+
+. ~/bin/conda_activate.sh openvisus-1.3.57
+python
 
 # size of each level will be larger by the entire size of the previous level
 # since the size of the dataset doubles at each level
@@ -95,8 +136,8 @@ for lvl in range(0,idx.getMaxResolution()):
     print("lvl:",lvl,"box:",idx.getLevelBox(lvl).toString())
 
 query=None
-#for lvl in range(0,idx.getMaxResolution()):
-for lvl in range(12,13):
+#for lvl in range(12,13):
+for lvl in range(0,idx.getMaxResolution()+1):
     lbox=idx.getLevelBox(lvl)
     print("lvl:",lvl,"box:",lbox.toString())
     query=Query(idx,ord('r'))

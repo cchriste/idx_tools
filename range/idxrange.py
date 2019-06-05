@@ -76,9 +76,9 @@ def setDefaultMinMax(field,dtype_str):
         type_info = finfo(dtype_str)
 
     if field.global_min is None:
-        field.global_min = type_info.min * field.ncomponents
+        field.global_min = type_info.min
     if field.global_max is None:
-        field.global_max = type_info.max * field.ncomponents
+        field.global_max = type_info.max
 
     print("field:",field.name,"dtype:",dtype_str,"range:","["+
           str(field.global_min)+",",str(field.global_max)+"]")
@@ -110,9 +110,50 @@ def calc_minmax_initial(field,data):
                     field.max=val.item()
 
 #****************************************************
+# trying div-by-two instead of .middle(), and keeping old version for debug purposes
+#curr_dim=1
+def getLargestLevelBoxDiv2(idx,field,lvl,maxsize,curr_dim):
+    lbox=idx.getLevelBox(lvl)
+    bitmask=idx.getBitmask()
+    idx_dim=idx.getPointDim()
+    print("lvl:",lvl,"box:",lbox.toString(),"idx_dim:",idx_dim)#,end=', ')
+
+    #global curr_dim
+    if lvl > 0:
+        curr_dim=bitmask[lvl]
+    else:
+        curr_dim=0              # example bitmask: V001010101012012012012012  (24 levels)
+                                #                  0123456789abcdefghijklmno
+    tooBig=True
+    i=1
+    while tooBig:
+        print("curr_dim:",curr_dim,end=', ')
+        query=Query(idx,ord('r'))
+        query.position=Position(lbox)
+        query.start_resolution=lvl
+        query.end_resolutions.clear()
+        query.end_resolutions.append(lvl)
+        idx.beginQuery(query)
+        print("lbox:",lbox.toString(),"nsamples box:",query.nsamples.toString())
+        if query.getByteSize() > maxsize:
+            new_p2 = lbox.p2
+            new_p2.set(curr_dim, int((lbox.p1[curr_dim] + lbox.p2[curr_dim])/2))
+            lbox=NdBox(lbox.p1, new_p2)
+            curr_dim = bitmask[lvl-i]  #(curr_dim + 1) % idx_dim
+            i+=1
+        else:
+            global max_field_len
+            print("largest box for field %s at lvl %d is <%s> (%d bytes), overall region: <%s>, actual box: <%s>" %
+                  (field.name.ljust(max_field_len),lvl,query.nsamples.toString(),query.getByteSize(),
+                   query.position.getNdBox().size().toString(),query.position.getNdBox().toString()))
+            tooBig=False
+    #print("...and lbox itself (should be same):",lbox.toString())
+    return curr_dim,lbox
+
+#****************************************************
 # gets the largest box of the idx for this field that fits within the specified max memory size
 # This version uses level box to properly compute bounds
-def getLargestLevelBox(idx,field,lvl,maxsize):
+def getLargestLevelBox(idx,field,lvl,maxsize,ignore):
     lbox=idx.getLevelBox(lvl)
     print("lvl:",lvl,"box:",lbox.toString(),end=', ')
     tooBig=True
@@ -132,7 +173,7 @@ def getLargestLevelBox(idx,field,lvl,maxsize):
                    query.position.getNdBox().size().toString(),query.position.getNdBox().toString()))
             tooBig=False
     #print("...and lbox itself (should be same):",lbox.toString())
-    return lbox
+    return -1,lbox
 
 #****************************************************
 # gets the largest box of the idx for this field that fits within the specified max memory size
@@ -154,22 +195,22 @@ def getLargestBoxNaive(idx,field,lvl,maxsize):
             print("largest box for field %s at lvl %d is <%s> (%d bytes), overall region: <%s>" %
                   (field.name.ljust(max_field_len),lvl,query.nsamples.toString(),query.getByteSize(),query.position.getNdBox().size().toString()))
             tooBig=False
-    return box
+    return -1,box
 
 #****************************************************
 # gets the next box, returns None if there aren't any more
-# TODO: [] try using a z-order to achieve faster convergence (measure and graph)
+# TODO: [] try using a meta-z-order for the set of boxes of this size at this level to achieve faster convergence (measure and graph)
 def getNextBox(idx,lvl,curr_box,box_size):
     idx_box=idx.getBox()
     next_box=NdBox(curr_box.p1,curr_box.p2)
 
     global I
-    #print(indent(I)+"getNextBox(): curr_box:",curr_box.toString()+",","box_size:",box_size.toString())
+    print(indent(I)+"getNextBox(): curr_box:",curr_box.toString()+",","box_size:",box_size.toString())
     # x
     if next_box.p2[0] < idx_box.p2[0]:
         next_box.p1.set(0,     next_box.p1[0] + box_size[0])                 # increment x p1
         next_box.p2.set(0, min(next_box.p2[0] + box_size[0], idx_box.p2[0])) # increment x p2
-        #print(indent(I)+"increment x, next_box:",next_box.toString())
+        print(indent(I)+"increment x, next_box:",next_box.toString())
         return next_box
 
     # y
@@ -177,8 +218,8 @@ def getNextBox(idx,lvl,curr_box,box_size):
         next_box.p1.set(1,     next_box.p1[1] + box_size[1])                 # increment y p1
         next_box.p2.set(1, min(next_box.p2[1] + box_size[1], idx_box.p2[1])) # increment y p2
         next_box.p1.set(0, idx_box.p1[0])                                    # wrap x p1
-        next_box.p2.set(0, idx_box.p1[0] + box_size[0])                      # wrap x p2
-        #print(indent(I)+"increment y, wrap x, next_box:",next_box.toString())
+        next_box.p2.set(0, min(idx_box.p1[0] + box_size[0], idx_box.p2[0]))  # wrap x p2
+        print(indent(I)+"increment y, wrap x, next_box:",next_box.toString())
         return next_box
     
     # z
@@ -186,10 +227,10 @@ def getNextBox(idx,lvl,curr_box,box_size):
         next_box.p1.set(2,     next_box.p1[2] + box_size[2])                 # increment z p1
         next_box.p2.set(2, min(next_box.p2[2] + box_size[2], idx_box.p2[2])) # increment z p2
         next_box.p1.set(1, idx_box.p1[1])                                    # wrap y p1
-        next_box.p2.set(1, idx_box.p1[1] + box_size[1])                      # wrap y p2
+        next_box.p2.set(1, min(idx_box.p1[1] + box_size[1], idx_box.p2[1]))  # wrap y p2
         next_box.p1.set(0, idx_box.p1[0])                                    # wrap x p1
-        next_box.p2.set(0, idx_box.p1[0] + box_size[0])                      # wrap x p2
-        #print(indent(I)+"increment z, wrap x and y, next_box:",next_box.toString())
+        next_box.p2.set(0, min(idx_box.p1[0] + box_size[0], idx_box.p2[0]))  # wrap x p2
+        print(indent(I)+"increment z, wrap x and y, next_box:",next_box.toString())
         return next_box
 
     #print(indent(I)+"Done! No more boxes to read for this field at this level")
@@ -202,7 +243,7 @@ def indent(I):
     return "%s"%('  '*I)
 
 #****************************************************
-def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output):
+def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output,timestep):
     VisusIdxPy.IdxModule.attach()
 
     # read IDX
@@ -260,6 +301,9 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
     global old_fields
     old_fields=copy.deepcopy(fields)
     
+    # maxmem in megabytes
+    maxmem = maxmem << 20
+
     # get box
     box=idx.getBox()
 
@@ -268,11 +312,22 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
 
     # get num resolution levels
     num_levels=idx.getMaxResolution()
-    #num_levels=min(num_levels,8)   #debug: set a smaller max level (15 means 32^3 if dims >= 32^3)
 
     # get timesteps
     timesteps=idx.timesteps.getRange()
+    if timestep is not None:
+        if timestep < timesteps.From or timestep > timesteps.To:
+            print("ERROR: specified timestep ("+str(timestep)+") is out of range ("+timesteps.From+", "+timesteps.To+")")
+        else:
+            timesteps.From=timesteps.To=timestep
+
+    # DEBUG
     #timesteps.To=timesteps.From+0  #debug: limit number of timesteps
+    #maxmem=2048                    #debug: reduce maxmem to a tiny value
+    #num_levels=min(num_levels,16)   #debug: set a smaller max level (15 means 32^3 if dims >= 32^3)
+    #getLargestBox=getLargestLevelBox    #this results in aligned queries 1/4 size of previous size
+    #getLargestBox=getLargestBoxNaive   #this results in non-aligned queries and probably takes longer (todo: mesaure difference)
+    getLargestBox=getLargestLevelBoxDiv2#these are aligned and 1/2 size of previous (so should be just like levels themselves)
 
     # tell 'em what we're gonna do
     print("\n** idxrange::calc_ranges **")
@@ -288,10 +343,9 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
                 print("Nothing to compute!")
                 return
 
-    #debug: set getLargestBox functions
-    getLargestBox=getLargestLevelBox    #this results in aligned queries
-    #getLargestBox=getLargestBoxNaive   #this results in non-aligned queries and probably takes longer (todo: mesaure difference)
+    # need to ensure first query is not too big (todo: just set it in getLargest, along with returning a correct box_size)
     idx_box=idx.getBox()
+    curr_dim=0
     
     # for each resolution level
     for lvl in range(0,num_levels+1):
@@ -300,7 +354,7 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
         # get box size for each field at this level
         largest_box_at_curr_level={}
         for field in fields:
-            largest_box_at_curr_level[field.name]=getLargestBox(idx,field,lvl,maxmem)
+            curr_dim,largest_box_at_curr_level[field.name]=getLargestBox(idx,field,lvl,maxmem,curr_dim)
 
         # for each timestep
         global I
@@ -331,7 +385,7 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
                 cnt=1
                 I += 1 # increase indent
                 while curr_box is not None:
-#                    print(indent(I)+"Beginning query",str(cnt)+",","box:",curr_box.toString())
+                    print(indent(I)+"Beginning query",str(cnt)+",","box:",curr_box.toString())
                     query=Query(idx,ord('r'))
                     query.field=idx.getFieldByName(field.name)
                     query.position=Position(curr_box)
@@ -340,13 +394,14 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
                     query.end_resolutions.append(lvl)
                     idx.beginQuery(query)
                     if query.canExecute():
-                        print(indent(I)+"Executing query",str(cnt)+",","box:",curr_box.toString()+",","bounds:",query.nsamples.toString()+",","size:",query.getByteSize(),end="...")
+                        #print(indent(I)+"Executing query",str(cnt)+",","box:",curr_box.toString()+",","bounds:",query.nsamples.toString()+",","size:",query.getByteSize(),end="...")
                         idx.executeQuery(access,query)
                         #print("DONE executing query!")
                         if query.failed():
                             print(" failed! :-(");
                         else:
-                            print(" succeeded! :-)");
+                            #print(" succeeded! :-)");
+                            pass
 
                         #print("reading query buffer...")
                         buf=VisusKernelPy.Array.toNumPy(query.buffer)
@@ -356,7 +411,8 @@ def calc_ranges(idxpath,fields_to_calculate,global_min,global_max,maxmem,output)
                         field.calc_minmax_func(field,buf)
                     else:
                         # it's okay. Probably there just aren't any samples in this region at this level
-                        print(indent(I)+"SKIPPING query",cnt,"(box:",curr_box.toString()+")","because",query.getLastErrorMsg())
+                        #print(indent(I)+"SKIPPING query",cnt,"(box:",curr_box.toString()+")","because",query.getLastErrorMsg())
+                        pass
 
                     # get next box (None if we're done)
                     #print("and getting the next box...")
@@ -394,17 +450,20 @@ if __name__ == '__main__':
 
     parser.add_argument("--max",dest='maxval',type=float,required=False,help="maxiumu value to include (higher"+minmax_help)
     parser.add_argument("-o","--output",required=False,default="",help="path to output IDX file (default: same as input, or 'idx_with_ranges.idx' if input is not writable)")
-    parser.add_argument("--maxmem",required=False,type=int,default=2*1024*1024,help="maximum amount of memory to be used by this utility")
+    parser.add_argument("--maxmem",required=False,type=int,default=2,help="maximum amount of memory (in MB) to be used by this utility")
+    parser.add_argument("--timestep",required=False,type=int,help="timestep for which to compute range")
     parser.add_argument("--profile",required=False,action='store_true',help="profile execution time of this utility")
     args = parser.parse_args()
 
     if args.minval is not None and args.maxval is not None:
         if args.maxval < args.minval:
-            print("ERROR: --min must be <= --max, but",args.minval,"is >",args.maxval)
-            exit(1)
+            parser.error("ERROR: --min must be <= --max, but "+str(args.minval)+" is > "+str(args.maxval))
+
+    if args.maxmem < 1:
+        parser.error("maxmem "+str(args.minval)+" must be > 0")
 
     # run the range calculator, profiling if requested
-    execstr='calc_ranges(idxpath=args.idxpath, fields_to_calculate=args.fields, global_min=args.minval, global_max=args.maxval, maxmem=args.maxmem, output=args.output)'
+    execstr='calc_ranges(idxpath=args.idxpath, fields_to_calculate=args.fields, global_min=args.minval, global_max=args.maxval, maxmem=args.maxmem, output=args.output, timestep=args.timestep)'
     if args.profile:
         import cProfile
         cProfile.run(execstr)
