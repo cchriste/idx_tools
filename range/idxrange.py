@@ -89,13 +89,13 @@ class IdxRange:
 
 
     #****************************************************
+    # def calc_minmax(self,field,data):
     def calc_minmax(self,field,data):
         for val in nditer(data):
-            if val>=field.global_min and val<=field.global_max:
-                if val<field.min:
-                    field.min=val.item()
-                elif val>field.max:
-                    field.max=val.item()
+            if val<field.min and val>=field.global_min:
+                field.min=val.item()
+            if val>field.max and val<=field.global_max:
+                field.max=val.item()
 
     #****************************************************
     def calc_minmax_initial(self,field,data):
@@ -105,8 +105,6 @@ class IdxRange:
                     field.min=field.max=val.item()
                     field.minmax_set=True
                     field.calc_minmax_func=self.calc_minmax
-                    # print("woo-hoo! min:",field.min,"max:",field.max)
-                    # print("wtf! global_min:",field.global_min,"global_max:",field.global_max)
                 else:
                     if val<field.min:
                         field.min=val.item()
@@ -114,8 +112,7 @@ class IdxRange:
                         field.max=val.item()
 
     #****************************************************
-    # trying div-by-two instead of .middle(), and keeping old version for debug purposes
-    #curr_dim=1
+    # gets the largest box of the idx for this field that fits within the specified max memory size
     def getLargestLevelBoxDiv2(self,field,lvl,maxsize,curr_dim):
         lbox=self.idx.getLevelBox(lvl)
         bitmask=self.idx.getBitmask()
@@ -126,7 +123,7 @@ class IdxRange:
             curr_dim=bitmask[lvl]
         else:
             curr_dim=0              # example bitmask: V001010101012012012012012  (24 levels)
-                                    #                  0123456789abcdefghijklmno
+
         tooBig=True
         i=1
         while tooBig:
@@ -142,64 +139,18 @@ class IdxRange:
                 new_p2 = lbox.p2
                 new_p2.set(curr_dim, int((lbox.p1[curr_dim] + lbox.p2[curr_dim])/2))
                 lbox=NdBox(lbox.p1, new_p2)
-                curr_dim = bitmask[lvl-i]  #(curr_dim + 1) % idx_dim
+                curr_dim = bitmask[lvl-i]
                 i+=1
             else:
                 # print("largest box for field %s at lvl %d is <%s> (%d bytes), overall region: <%s>, actual box: <%s>" %
                 #       (field.name.ljust(self.max_field_len),lvl,query.nsamples.toString(),query.getByteSize(),
                 #        query.position.getNdBox().size().toString(),query.position.getNdBox().toString()))
                 tooBig=False
-        #print("...and lbox itself (should be same):",lbox.toString())
         return curr_dim,lbox
 
     #****************************************************
-    # gets the largest box of the idx for this field that fits within the specified max memory size
-    # This version uses level box to properly compute bounds
-    def getLargestLevelBox(self,field,lvl,maxsize,ignore):
-        lbox=self.idx.getLevelBox(lvl)
-        #print("lvl:",lvl,"box:",lbox.toString(),end=', ')
-        tooBig=True
-        while tooBig:
-            query=Query(self.idx,ord('r'))
-            query.position=Position(lbox)
-            query.start_resolution=lvl
-            query.end_resolutions.clear()
-            query.end_resolutions.append(lvl)
-            self.idx.beginQuery(query)
-            if query.getByteSize() > maxsize:
-                lbox=NdBox(lbox.p1,lbox.middle())
-            else:
-                # print("largest box for field %s at lvl %d is <%s> (%d bytes), overall region: <%s>, actual box: <%s>" %
-                #       (field.name.ljust(self.max_field_len),lvl,query.nsamples.toString(),query.getByteSize(),
-                #        query.position.getNdBox().size().toString(),query.position.getNdBox().toString()))
-                tooBig=False
-        #print("...and lbox itself (should be same):",lbox.toString())
-        return -1,lbox
-
-    #****************************************************
-    # gets the largest box of the idx for this field that fits within the specified max memory size
-    # *super* naive implementation. Should use pow2 dims or otherwise efficiently make idx queries
-    def getLargestBoxNaive(self,field,lvl,maxsize):
-        box=self.idx.getBox()
-        tooBig=True
-        while tooBig:
-            query=Query(self.idx,ord('r'))
-            query.position=Position(box)
-            query.start_resolution=lvl
-            query.end_resolutions.clear()
-            query.end_resolutions.append(lvl)
-            self.idx.beginQuery(query)
-            if query.getByteSize() > maxsize:
-                box=NdBox(box.p1,box.middle())
-            else:
-                # print("largest box for field %s at lvl %d is <%s> (%d bytes), overall region: <%s>" %
-                #       (field.name.ljust(self.max_field_len),lvl,query.nsamples.toString(),query.getByteSize(),query.position.getNdBox().size().toString()))
-                tooBig=False
-        return -1,box
-
-    #****************************************************
     # gets the next box, returns None if there aren't any more
-    # TODO: [] try using a meta-z-order for the set of boxes of this size at this level to achieve faster convergence (measure and graph)
+    # TODO: [] try using a meta-z-order for the set of boxes of this size at this level to achieve even faster convergence (measure and graph)
     def getNextBox(self,lvl,curr_box,box_size):
         next_box=NdBox(curr_box.p1,curr_box.p2)
 
@@ -285,11 +236,8 @@ class IdxRange:
                 timesteps.From=timesteps.To=timestep
 
         # DEBUG
-        #timesteps.To=timesteps.From+0  #debug: limit number of timesteps
         #maxmem=2048                    #debug: reduce maxmem to a tiny value
         #num_levels=min(num_levels,16)   #debug: set a smaller max level (15 means 32^3 if dims >= 32^3)
-        #getLargestBox=self.getLargestLevelBox    #this results in aligned queries 1/4 size of previous size
-        #getLargestBox=self.getLargestBoxNaive   #this results in non-aligned queries and probably takes longer (todo: mesaure difference)
         getLargestBox=self.getLargestLevelBoxDiv2#these are aligned and 1/2 size of previous (so should be just like levels themselves)
 
         # tell 'em what we're gonna do
@@ -327,10 +275,6 @@ class IdxRange:
                 # read and compute range of all fields at this level
                 self.I += 1 # increase indent
                 for field in self.fields:
-                    if field.ncomponents > 1:
-                        print("SKIPPING FIELD!!! (should decide to do this much earlier / todo)")
-                        continue
-
                     print(self._indent()+"field:",field.name)
 
                     # get region size that fits in memory
@@ -354,32 +298,13 @@ class IdxRange:
                         query.end_resolutions.append(lvl)
                         self.idx.beginQuery(query)
                         if query.canExecute():
-                            #print(self._indent()+"Executing query",str(cnt)+",","box:",curr_box.toString()+",","bounds:",query.nsamples.toString()+",","size:",query.getByteSize(),end="...")
                             self.idx.executeQuery(access,query)
-                            #print("DONE executing query!")
-                            if query.failed():
-                                print(" failed! :-(");
-                                raise ValueError("query failed")
-                            else:
-                                #print(" succeeded! :-)");
-                                pass
-
-                            #print("reading query buffer...")
-                            buf=VisusKernelPy.Array.toNumPy(query.buffer)
-
-                            # perform the comparisons
-                            #print("performing minmax computation...")
-                            field.calc_minmax_func(field,buf)
-                        else:
-                            # it's okay. Probably there just aren't any samples in this region at this level
-                            #print(self._indent()+"SKIPPING query",cnt,"(box:",curr_box.toString()+")","because",query.getLastErrorMsg())
-                            pass
+                            field.calc_minmax_func(field,VisusKernelPy.Array.toNumPy(query.buffer))
+                        #else:
+                            #print("ERROR: query",cnt,"failed because",query.getLastErrorMsg(),"(box:",curr_box.toString()+")")
 
                         # get next box (None if we're done)
-                        #print("and getting the next box...")
                         curr_box=self.getNextBox(lvl,curr_box,box_size)
-                        #print("...which is",curr_box)
-
                         cnt += 1
 
                     # publish current values

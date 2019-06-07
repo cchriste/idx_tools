@@ -1,11 +1,16 @@
-Sunday, May 19, 2019
------------------------------
+idxrange.py
+Incrementally computes the range of data in an idx volume.
+-------------------------------------------------------------------------------
 
-PRIMARY:
-[x] use python command line lib which prints help already (it's found in many of my other python utilities)
-
-ONCE IT'S WORKING:
 [] look for a bucket-o-threads container (or use visus' equivalent of the same if it has one)
+[] vectorize the computation for it to be *much* faster (not sure how, but numpy seems able to do so)
+[] handle ncomponents >1 cases (mostly there already)
+
+
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+old notes...
 
 Tuesday, May 28, 2019
 -----------------------------
@@ -13,23 +18,22 @@ Making progress.
 [x] print("\tignoring because ncomponents is > 1")    # [x] test this (todo)
 [x] get basic min/max checking working
 [x] handle levels that would load too much data at full resolution
-[] try not changing functions to see if this is faster: global_calc_minmax_func=calc_minmax
-[] vectorize the computation for it to be *much* faster (just not sure how, but numpy seems able to do so)
+[x] try not changing functions to see if this is faster: global_calc_minmax_func=calc_minmax (it's slower of course since the initial functions have to first check if something has been assigned)
 [x] compute for all timesteps
+[x] use python command line lib which prints help already (it's found in many of my other python utilities)
 
 Saturday, June 01, 2019
 -----------------------------
 Getting correct results now, but still lots of extraneous queries.
 [x] try div by 2 instead of by 4 (and it performs far fewer queries)
-[] do full-res queries to verify results are currect
+[x] do full-res queries to verify results are currect
  - no spurious sample, of which 0.0 is often an indicator
  - still not 100% proof, which could be created with a synthetic dataset that has unique values for each "pixel" (like maybe its coordinates)
   ...but pretty close! and I don't feel like creating a new dataset right now.
-[] handle ncomponents >1 cases (mostly there already)
 
 Sunday, June 02, 2019
 -----------------------------
-[] make it a class rather than using all those globals
+[x] make it a class rather than using all those globals
 
 debugging...
 
@@ -50,9 +54,9 @@ lvl: 11 box: 0 1024 16 528 0 32 dim: 3, largest box for field hus at lvl 11 is <
 Tuesday, June 04, 2019
 -----------------------------
 [...] all of the above, and...
-[] test performance
-[] update visus --minmax to handle --min and --max set by user
-[] fix visus --minmax checking spurious values from non-pow2 data (or at least file a bug)
+[x] test performance
+[x] update visus --minmax to handle --min and --max set by user (submitted feature request)
+[x] fix visus --minmax checking spurious values from non-pow2 data (filed a bug)
 
 Wednesday, June 05, 2019
 -----------------------------
@@ -77,7 +81,15 @@ Making calc_minmax into a class (IdxRange).
  - aside: just use an empty class like this in order to have a namespace:
      class Foo:
          None
-   
+
+Trying to make it faster...
+ ~70s to execute, most spend in calc_minmax
+ Simplified calc_minmax and... now down to 37s!
+
+Thursday, June 06, 2019
+-----------------------------
+Time to move on... committing and sharing now.
+
 -------------------------------------------------------------------------------
 -------------------------------------------------------------------------------
 ** It's helpful to debug by cut n' pasting things like this into an interpreter session **

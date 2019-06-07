@@ -1,46 +1,35 @@
-```
-range - incrementally computes range of fields in a .idx volume
-Copyright (C) 2019  Cameron Christensen
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-```
-
-# range
+# idxrange.py
 
 * incrementally computes range of fields in a .idx volume
 
-
 ## Usage
 
-range [params] <dataset>
+```
+$ python idxrange.py --help
+usage: idxrange.py [-h] [-f FIELDS [FIELDS ...]] [--min MINVAL] [--max MAXVAL]
+                   [--maxmem MAXMEM] [--timestep TIMESTEP] [--profile]
+                   idxpath
 
-### dataset
+Incrementally computes ranges of fields within an IDX volume.
 
-* location of dataset, either local or remote
+positional arguments:
+  idxpath               path/url of IDX volume
 
-### params
-
--a,--all            compute range of all fields in volume
-
--f,--field <name>   field for which range should be computed
-
--l,--list           list all fields and their current ranges
-
--o,--output <name>  output idx path, by default same as <dataset>
-
---min/--max         ignore any values smaller/larger than these
-                    some datasets use placeholders for default/nil values
-
--v,--verbose        show more output of the task in progress
-
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FIELDS [FIELDS ...], --fields FIELDS [FIELDS ...]
+                        list of fields for which to compute min/max (default:
+                        all fields)
+  --min MINVAL          minimum value to include (lower values will be
+                        ignored). NOTE: if different min/max required for each
+                        fields, please run this utility separated for each
+                        field
+  --max MAXVAL          maxiumu value to include (higher values will be
+                        ignored). NOTE: if different min/max required for each
+                        fields, please run this utility separated for each
+                        field
+  --maxmem MAXMEM       maximum amount of memory (in MB) to be used by this
+                        utility
+  --timestep TIMESTEP   timestep for which to compute range
+  --profile             profile execution time of this utility
+```
